@@ -76,7 +76,7 @@ def get_config():
 def get_events():
     r = requests.get("https://graph.facebook.com/v2.8/" + fb_page + "?fields=events{start_time,place,name}&access_token=" + fb_token)
     if r.status_code != 200:
-        return jsonify({'msg': "Could not load facebook events"})
+        return jsonify({'msg': "Could not load facebook events", 'code': r.status_code, 'details': r.text()})
 
     return jsonify({'msg': None, 'events': r.json()['events']['data']})
 
