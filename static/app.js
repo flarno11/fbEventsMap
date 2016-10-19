@@ -1,5 +1,4 @@
-
-google.load("maps", "3", {other_params:{}, callback: function(){
+google.load("maps", "3", {other_params: {}, key: config.googleApiKey, callback: function(){
     var map = new google.maps.Map(document.getElementById('map'), {
       //zoom: 4,
       //center: {lat: -25.363, lng: 131.044}
@@ -15,7 +14,7 @@ google.load("maps", "3", {other_params:{}, callback: function(){
         var i;
         for (i = 0; i < data['events'].length; ++i) {
             var event = data['events'][i];
-            console.log(event);
+            //console.log(event);
             if (event['place'] && event['place']['location']) {
                 var position = new google.maps.LatLng(event['place']['location']['latitude'], event['place']['location']['longitude']);
                 var marker = new google.maps.Marker({position: position, map: map, title: event['name']});

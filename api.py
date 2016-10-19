@@ -4,6 +4,7 @@ import os
 import requests
 
 from flask import Flask, jsonify
+from flask.wrappers import Response
 
 from config import setup_logging
 from lib import TimeFormat
@@ -67,15 +68,20 @@ def index():
     return app.send_static_file('index.html')
 
 
-@app.route('/config')
+@app.route('/config.js')
 def get_config():
-    return {'googleApiKey': google_api_key}
+    s = 'var config = {"googleApiKey": "%s"};' % google_api_key
+    return Response(s, mimetype='text/javascript')
 
 
 @app.route('/events')
 def get_events():
-    r = requests.get("https://graph.facebook.com/v2.8/" + fb_page + "?fields=events{start_time,place,name}&access_token=" + fb_token)
+    try:
+        r = requests.get("https://graph.facebook.com/v2.8/" + fb_page + "?fields=events{start_time,place,name}&access_token=" + fb_token)
+    except ConnectionError:
+        return jsonify({'msg': "Could not connect to facebook api"})
     if r.status_code != 200:
+        logger.error(r.text)
         return jsonify({'msg': "Could not load facebook events", 'code': r.status_code})  #, 'details': r.text
 
     return jsonify({'msg': None, 'events': r.json()['events']['data']})
