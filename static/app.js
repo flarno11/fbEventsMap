@@ -1,4 +1,4 @@
-google.load("maps", "3", {other_params: {}, key: config.googleApiKey, callback: function(){
+google.load("maps", "3", {other_params: 'key='+config.googleApiKey, callback: function(){
     var map = new google.maps.Map(document.getElementById('map'), {
       //zoom: 4,
       //center: {lat: -25.363, lng: 131.044}
