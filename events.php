@@ -19,7 +19,8 @@ function sortUP($event1, $event2)
     return ($s1 > $s2) ? +1 : -1;
 }
 function addressToGps($address, $google_api_key) {
-    $url = "https://maps.googleapis.com/maps/api/geocode/json?address=$address&region=ch&key=$google_api_key";
+    $encoded = urlencode($address);
+    $url = "https://maps.googleapis.com/maps/api/geocode/json?address=$encoded&region=ch&key=$google_api_key";
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -50,32 +51,45 @@ function load_fb_events($fb_page, $fb_token, $google_api_key) {
     $events = array_values(array_filter($results['events']['data'], "filterUP"));
     usort($events, "sortUP");
     
-    foreach ($events as $event) {
+    foreach ($events as &$event) { // iterate by reference (&$event), otherwise $events is not updated with the changed $event
         if (isset($event['place']) && !isset($event['place']['location']) && isset($event['place']['name'])) {
             $event['place']['location'] = addressToGps($event['place']['name'], $google_api_key);
         }
     }
+    unset($event); // break the reference with the last element
     
     return $events;
 }
 
-$languages = array('de' => 'de_CH.utf8', 'fr' => 'fr_CH.utf8', 'en' => 'en_US.utf8');
-
-if (!file_exists('./events.de.json') || time() - filemtime('./events.de.json') > 5*60) {
+$languages = array(
+    'de' => array('locale' => 'de_CH.utf8', 'dateFormat' => '%e. %B',),
+    'fr' => array('locale' => 'fr_CH.utf8', 'dateFormat' => '%e %B', 'translations' => array('Basel' => 'Bâle')),
+    'en' => array('locale' => 'en_US.utf8', 'dateFormat' => '%B %e',),
+);
+$force = filter_input(INPUT_GET, 'force', FILTER_VALIDATE_BOOLEAN);
+if ($force || !file_exists('./events.de.json') || time() - filemtime('./events.de.json') > 5*60) {
     $events = load_fb_events($fb_page, $fb_token, $google_api_key);
     
-    foreach ($languages as $l => $locale1) {
-        $locale2 = setlocale(LC_ALL, $locale1);
+    foreach ($languages as $l => $lang) {
+        $localeSet = setlocale(LC_ALL, $lang['locale']);
         $data = array();
         foreach ($events as $event) {
             $location = isset($event['place']) && isset($event['place']['location']) ? $event['place']['location'] : null;
-            $city = isset($location) && isset($location['city']) ? $location['city'] . ' | ' : '';
+            if (isset($location) && isset($location['city'])) {
+                $city = $location['city'];
+                if (isset($lang['translations'][$city])) {
+                    $city = $lang['translations'][$city];
+                }
+                $city .= ' | ';
+            } else {
+                $city = '';
+            }
             $place = isset($event['place']) ? $event['place']['name'] : '';
             $street = isset($location) && isset($location['street']) ? $location['street'] . ' | ' : '';
             
             $startTime = strtotime($event['start_time']);
             
-            $startTimeLong = strftime("%e. %B", $startTime);
+            $startTimeLong = strftime($lang['dateFormat'], $startTime);
             $duration = strftime("%H:%M", $startTime);
             
             if (isset($event['end_time'])) {
@@ -85,8 +99,8 @@ if (!file_exists('./events.de.json') || time() - filemtime('./events.de.json') >
             
             $data[] = array(
                 'id' => $event['id'],
-                'locale1' => $locale1,
-                'locale2' => $locale2,
+                'localeAsked' => $lang['locale'],
+                'localeSet' => $localeSet,
                 'title' => $startTimeLong . ' | ' . $city . $event['name'],
                 'subTitle' => (isset($place) ? $place . ' | ' : '') . $street . $duration,
                 'startTime' => $startTimeLong,
